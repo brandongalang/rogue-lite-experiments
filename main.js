@@ -56,24 +56,21 @@ function create() {
 
     keys = this.input.keyboard.addKeys('W,A,S,D,SPACE');
 
-    this.comingSoonText = this.add.text(player.x, player.y - 30, 'Coming Soon!', { fontSize: '16px', fill: '#fff' });
-    this.comingSoonText.setOrigin(0.5);
-    this.comingSoonText.setVisible(false);
-
     this.woodland_fantasy = this.sound.add('woodland_fantasy', { loop: true });
     this.woodland_fantasy.play();
 }
 
 function update() {
-    this.comingSoonText.setVisible(false);
-    this.comingSoonText.setPosition(player.x, player.y - 30);
-
     const gates = map.getTilesWithinWorldXY(player.x - 16, player.y - 16, 32, 32);
     gates.forEach(gate => {
         if (gate.collides) {
             const gateBounds = new Phaser.Geom.Rectangle(gate.pixelX, gate.pixelY, 16, 16);
             if (Phaser.Geom.Intersects.RectangleToRectangle(player.getBounds(), gateBounds) && keys.SPACE.isDown) {
-                this.comingSoonText.setVisible(true);
+                // Hide the main game
+                game.canvas.style.display = 'none';
+                // Show and start the roguelite game
+                document.getElementById('roguelite-container').style.display = 'block';
+                startGame(getSeed());
             }
         }
     });
