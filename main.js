@@ -29,6 +29,9 @@ let player;
 let map;
 let keys;
 
+let characterIndex = 0;
+const characterFrames = [0, 4, 8, 12];
+
 function create() {
     map = this.make.tilemap({ tileWidth: 16, tileHeight: 16, width: 50, height: 38 });
     const tileset = map.addTilesetImage('Overworld');
@@ -38,7 +41,7 @@ function create() {
     layer.fill(3, 0, 0, 50, 38);
 
     // Add dungeon entrances in a 3x3 grid
-    const dungeonTiles = [10, 11, 12, 20, 21, 22, 30, 31, 32];
+    const dungeonTiles = [10, 5, 5, 5, 5, 5, 5, 5, 5];
     let tileIndex = 0;
     for (let i = 0; i < 3; i++) {
         for (let j = 0; j < 3; j++) {
@@ -47,46 +50,83 @@ function create() {
         }
     }
 
-    player = this.physics.add.sprite(400, 300, 'character');
+    player = this.physics.add.sprite(400, 300, 'character', characterFrames[characterIndex]);
     this.physics.add.collider(player, layer);
-    map.setCollisionBetween(10, 32, true);
+    map.setCollision([5, 10], true);
 
-    this.cameras.main.setZoom(2);
+    this.add.text(168, 152, 'Dungeon 1', { font: '12px monospace', fill: '#ffffff' }).setOrigin(0.5);
+
+    this.cameras.main.setZoom(3);
     this.cameras.main.startFollow(player);
 
-    keys = this.input.keyboard.addKeys('W,A,S,D,SPACE');
+    keys = this.input.keyboard.addKeys('W,A,S,D,LEFT,RIGHT');
+
+    // Create animations for each character
+    for (let i = 0; i < 4; i++) {
+        this.anims.create({
+            key: `walk_down_${i}`,
+            frames: this.anims.generateFrameNumbers('character', { start: i * 4, end: i * 4 + 0 }),
+            frameRate: 10,
+            repeat: -1
+        });
+        this.anims.create({
+            key: `walk_up_${i}`,
+            frames: this.anims.generateFrameNumbers('character', { start: i * 4 + 1, end: i * 4 + 1 }),
+            frameRate: 10,
+            repeat: -1
+        });
+        this.anims.create({
+            key: `walk_left_${i}`,
+            frames: this.anims.generateFrameNumbers('character', { start: i * 4 + 2, end: i * 4 + 2 }),
+            frameRate: 10,
+            repeat: -1
+        });
+        this.anims.create({
+            key: `walk_right_${i}`,
+            frames: this.anims.generateFrameNumbers('character', { start: i * 4 + 3, end: i * 4 + 3 }),
+            frameRate: 10,
+            repeat: -1
+        });
+    }
 
     this.woodland_fantasy = this.sound.add('woodland_fantasy', { loop: true });
     this.woodland_fantasy.play();
 }
 
 function update() {
-    const gates = map.getTilesWithinWorldXY(player.x - 16, player.y - 16, 32, 32);
-    gates.forEach(gate => {
-        if (gate.collides) {
-            const gateBounds = new Phaser.Geom.Rectangle(gate.pixelX, gate.pixelY, 16, 16);
-            if (Phaser.Geom.Intersects.RectangleToRectangle(player.getBounds(), gateBounds) && keys.SPACE.isDown) {
-                // Hide the main game
-                game.canvas.style.display = 'none';
-                // Show and start the roguelite game
-                document.getElementById('roguelite-container').style.display = 'block';
-                startGame(getSeed());
-            }
-        }
-    });
+    const gate = map.getTileAtWorldXY(player.x, player.y);
+    if (gate && gate.index === 10) {
+        // Hide the main game
+        game.canvas.style.display = 'none';
+        // Show and start the roguelite game
+        document.getElementById('roguelite-container').style.display = 'block';
+        startGame(getSeed());
+    }
 
     player.setVelocity(0);
 
-    if (keys.A.isDown) {
-        player.setVelocityX(-160);
-    } else if (keys.D.isDown) {
-        player.setVelocityX(160);
+    if (Phaser.Input.Keyboard.JustDown(keys.LEFT)) {
+        characterIndex = (characterIndex - 1 + characterFrames.length) % characterFrames.length;
+        player.setTexture('character', characterFrames[characterIndex]);
+    } else if (Phaser.Input.Keyboard.JustDown(keys.RIGHT)) {
+        characterIndex = (characterIndex + 1) % characterFrames.length;
+        player.setTexture('character', characterFrames[characterIndex]);
     }
 
-    if (keys.W.isDown) {
+    if (keys.A.isDown) {
+        player.setVelocityX(-160);
+        player.anims.play(`walk_left_${characterIndex}`, true);
+    } else if (keys.D.isDown) {
+        player.setVelocityX(160);
+        player.anims.play(`walk_right_${characterIndex}`, true);
+    } else if (keys.W.isDown) {
         player.setVelocityY(-160);
+        player.anims.play(`walk_up_${characterIndex}`, true);
     } else if (keys.S.isDown) {
         player.setVelocityY(160);
+        player.anims.play(`walk_down_${characterIndex}`, true);
+    } else {
+        player.anims.stop();
     }
 
     if (player.body.velocity.x !== 0 || player.body.velocity.y !== 0) {
