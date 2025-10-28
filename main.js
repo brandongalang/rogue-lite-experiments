@@ -18,64 +18,61 @@ const config = {
 const game = new Phaser.Game(config);
 
 function preload() {
-    this.load.image('tiles', 'assets/tileset.png');
-    this.load.spritesheet('Soldier-Blue', 'assets/Soldier-Blue.png', { frameWidth: 32, frameHeight: 32 });
-    this.load.spritesheet('Warrior-Red', 'assets/Warrior-Red.png', { frameWidth: 32, frameHeight: 32 });
-    this.load.spritesheet('Mage-Cyan', 'assets/Mage-Cyan.png', { frameWidth: 32, frameHeight: 32 });
-    this.load.audio('dungeon_ambience', 'assets/dungeon_ambience.ogg');
+    this.load.image('Overworld', 'assets/gfx/Overworld.png');
+    this.load.image('Inner', 'assets/gfx/Inner.png');
+    this.load.spritesheet('character', 'assets/character.png', { frameWidth: 16, frameHeight: 16 });
+    this.load.audio('woodland_fantasy', 'assets/woodland_fantasy.mp3');
     this.load.audio('footstep', 'assets/sfx100v2_footstep_01.ogg');
 }
 
 let player;
 let map;
-
-function changeCharacter(key) {
-    player.setTexture(key);
-}
+let keys;
 
 function create() {
-    map = this.make.tilemap({ tileWidth: 16, tileHeight: 16 });
-    const tileset = map.addTilesetImage('tiles', 'tiles', 16, 16);
+    map = this.make.tilemap({ tileWidth: 16, tileHeight: 16, width: 50, height: 38 });
+    const tileset = map.addTilesetImage('Overworld');
     const layer = map.createBlankLayer('layer1', tileset, 0, 0, 50, 38);
 
-    // Create a simple room
-    layer.fill(2, 0, 0, 50, 38); // Fill with floor
-    layer.fill(1, 0, 0, 50, 1); // Top wall
-    layer.fill(1, 0, 37, 50, 1); // Bottom wall
-    layer.fill(1, 0, 0, 1, 38); // Left wall
-    layer.fill(1, 49, 0, 1, 38); // Right wall
+    // Create a simple grassy area
+    layer.fill(3, 0, 0, 50, 38);
 
-    // Add gates
+    // Add dungeon entrances in a 3x3 grid
+    const dungeonTiles = [10, 11, 12, 20, 21, 22, 30, 31, 32];
+    let tileIndex = 0;
     for (let i = 0; i < 3; i++) {
         for (let j = 0; j < 3; j++) {
-            map.putTileAt(3, 10 + i * 10, 10 + j * 10, layer);
+            map.putTileAt(dungeonTiles[tileIndex % dungeonTiles.length], 10 + i * 10, 10 + j * 10, layer);
+            tileIndex++;
         }
     }
 
-    player = this.physics.add.sprite(400, 300, 'Soldier-Blue');
+    player = this.physics.add.sprite(400, 300, 'character');
     this.physics.add.collider(player, layer);
-    map.setCollision(1, true);
+    map.setCollisionBetween(10, 32, true);
 
-    this.cursors = this.input.keyboard.createCursorKeys();
-    this.cursors.space = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+    this.cameras.main.setZoom(2);
+    this.cameras.main.startFollow(player);
 
-    this.comingSoonText = this.add.text(250, 250, 'Coming Soon!', { fontSize: '32px', fill: '#fff' });
+    keys = this.input.keyboard.addKeys('W,A,S,D,SPACE');
+
+    this.comingSoonText = this.add.text(player.x, player.y - 30, 'Coming Soon!', { fontSize: '16px', fill: '#fff' });
+    this.comingSoonText.setOrigin(0.5);
     this.comingSoonText.setVisible(false);
 
-    this.dungeon_ambience = this.sound.add('dungeon_ambience', { loop: true });
-    this.dungeon_ambience.play();
+    this.woodland_fantasy = this.sound.add('woodland_fantasy', { loop: true });
+    this.woodland_fantasy.play();
 }
 
 function update() {
-    // Hide the "Coming Soon!" text by default
     this.comingSoonText.setVisible(false);
+    this.comingSoonText.setPosition(player.x, player.y - 30);
 
-    // Check for overlap with any of the gates
-    const gates = map.getTilesWithin(0, 0, 50, 38, { isColliding: false, hasInterestingFace: false });
+    const gates = map.getTilesWithinWorldXY(player.x - 16, player.y - 16, 32, 32);
     gates.forEach(gate => {
-        if (gate.index === 3) {
+        if (gate.collides) {
             const gateBounds = new Phaser.Geom.Rectangle(gate.pixelX, gate.pixelY, 16, 16);
-            if (Phaser.Geom.Intersects.RectangleToRectangle(player.getBounds(), gateBounds) && this.cursors.space.isDown) {
+            if (Phaser.Geom.Intersects.RectangleToRectangle(player.getBounds(), gateBounds) && keys.SPACE.isDown) {
                 this.comingSoonText.setVisible(true);
             }
         }
@@ -83,15 +80,15 @@ function update() {
 
     player.setVelocity(0);
 
-    if (this.cursors.left.isDown) {
+    if (keys.A.isDown) {
         player.setVelocityX(-160);
-    } else if (this.cursors.right.isDown) {
+    } else if (keys.D.isDown) {
         player.setVelocityX(160);
     }
 
-    if (this.cursors.up.isDown) {
+    if (keys.W.isDown) {
         player.setVelocityY(-160);
-    } else if (this.cursors.down.isDown) {
+    } else if (keys.S.isDown) {
         player.setVelocityY(160);
     }
 
