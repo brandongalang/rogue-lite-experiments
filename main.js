@@ -23,11 +23,15 @@ function preload() {
     this.load.spritesheet('character', 'assets/character.png', { frameWidth: 16, frameHeight: 16 });
     this.load.audio('woodland_fantasy', 'assets/woodland_fantasy.mp3');
     this.load.audio('footstep', 'assets/sfx100v2_footstep_01.ogg');
+    this.load.audio('dungeon_ambience', 'assets/dungeon_ambience.ogg');
 }
 
 let player;
 let map;
 let keys;
+let dungeonLabel;
+let isNearDungeon = false;
+let canEnterDungeon = true;
 
 let characterIndex = 0;
 const characterFrames = [0, 4, 8, 12];
@@ -54,7 +58,24 @@ function create() {
     this.physics.add.collider(player, layer);
     map.setCollision([5, 10], true);
 
-    this.add.text(168, 152, 'Dungeon 1', { font: '12px monospace', fill: '#ffffff' }).setOrigin(0.5);
+    dungeonLabel = this.add.text(168, 152, 'Dungeon 1', {
+        font: '12px monospace',
+        fill: '#ffd700',
+        stroke: '#000000',
+        strokeThickness: 3
+    }).setOrigin(0.5);
+
+    // Add pulsing effect to dungeon label
+    this.tweens.add({
+        targets: dungeonLabel,
+        scaleX: 1.2,
+        scaleY: 1.2,
+        alpha: 0.7,
+        duration: 1000,
+        yoyo: true,
+        repeat: -1,
+        ease: 'Sine.easeInOut'
+    });
 
     this.cameras.main.setZoom(3);
     this.cameras.main.startFollow(player);
@@ -89,18 +110,28 @@ function create() {
         });
     }
 
-    this.woodland_fantasy = this.sound.add('woodland_fantasy', { loop: true });
+    this.woodland_fantasy = this.sound.add('woodland_fantasy', { loop: true, volume: 0.6 });
     this.woodland_fantasy.play();
+
+    // Store scene reference for dungeon transition
+    window.gameScene = this;
 }
 
 function update() {
     const gate = map.getTileAtWorldXY(player.x, player.y);
+
+    // Check if near dungeon entrance
     if (gate && gate.index === 10) {
-        // Hide the main game
-        game.canvas.style.display = 'none';
-        // Show and start the roguelite game
-        document.getElementById('roguelite-container').style.display = 'block';
-        startGame(getSeed());
+        if (!isNearDungeon) {
+            isNearDungeon = true;
+        }
+
+        if (canEnterDungeon) {
+            canEnterDungeon = false;
+            enterDungeon.call(this);
+        }
+    } else {
+        isNearDungeon = false;
     }
 
     player.setVelocity(0);
@@ -134,5 +165,58 @@ function update() {
             this.footstepSound = this.sound.add('footstep');
             this.footstepSound.play();
         }
+    }
+}
+
+function enterDungeon() {
+    const scene = this;
+
+    // Show transition message
+    const transitionMsg = document.createElement('div');
+    transitionMsg.className = 'transition-message';
+    transitionMsg.textContent = 'Entering Dungeon...';
+    document.body.appendChild(transitionMsg);
+
+    // Fade out overworld music
+    scene.tweens.add({
+        targets: scene.woodland_fantasy,
+        volume: 0,
+        duration: 1000,
+        ease: 'Linear'
+    });
+
+    // Fade out game canvas
+    scene.tweens.add({
+        targets: game.canvas,
+        alpha: 0,
+        duration: 800,
+        ease: 'Power2',
+        onComplete: () => {
+            game.canvas.style.display = 'none';
+            game.canvas.style.opacity = '1';
+
+            // Remove transition message
+            transitionMsg.remove();
+
+            // Show and start roguelite game
+            const container = document.getElementById('roguelite-container');
+            container.style.display = 'flex';
+            container.classList.add('active');
+
+            startGame(getSeed());
+        }
+    });
+}
+
+function changeCharacter(characterName) {
+    const characterMap = {
+        'Soldier-Blue': 0,
+        'Warrior-Red': 1,
+        'Mage-Cyan': 2
+    };
+
+    characterIndex = characterMap[characterName] || 0;
+    if (player) {
+        player.setTexture('character', characterFrames[characterIndex]);
     }
 }
